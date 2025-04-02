@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: mongo-doxer
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: secret_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_doxer_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  doxer-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doxer-service
+    environment:
+
+
+      MONGODB__URI: mongodb://mongoadmin:secret_password@mongo:27017
+      MONGODB__DB_NAME: doxer_db
+      MONGODB__USER_DATA_COLLECTION: user_data
+      MONGODB__USED_TOKENS_COLLECTION: used_tokens
+      MONGODB__LINKS_COLLECTION: links
+
+
+
+      TELEGRAM__BOT_TOKEN: 7381600697:AAF39S5-WoOWhewIFP1qqmZNvlwlBKewkCU
+      TELEGRAM__CHANNEL_ID: -1002159405504
+
+
+
+
+
+
+      SERVER__PORT: 8000
+      SERVER__WORKERS: 1
+
+
+
+      RUNNER__WORKERS: 1
+
+
+
+
+      TEMPLATES_DIR: /app/doxer/templates
+      STATIC_DIR: /app/doxer/static
+      GIF_TEMPLATE_PATH: /app/doxer/assets/happy.gif
+      FONT_PATH: /app/doxer/assets/font.otf
+
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+
+      - ./doxer:/app/doxer
+
+      - ./doxer/assets:/app/doxer/assets
+
+
+
+    command: [ "python", "-m", "doxer.entrypoints.web_server", "--proxy-headers", "--forwarded-allow-ips='*'" ]
+    restart: unless-stopped
+
+volumes:
+  mongo_doxer_data:
